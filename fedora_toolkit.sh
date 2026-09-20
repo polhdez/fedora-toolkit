@@ -341,7 +341,7 @@ draw_ask_dialog() {
 
 finished_msg() {
     local msg="${GREEN}Task ran succesfully!${NC}"
-    [ "$1" != "" ] && msg="$1"
+    [ $# == 1 ] && msg="$1"
     echo -en "$msg"
     read -p " Press any key to return."
     # Disable cursor key echo etc
