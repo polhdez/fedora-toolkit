@@ -121,7 +121,7 @@ install_nvidia_driver_open() {
 # Driver for Turing Pascal and Volta architecture
 install_nvidia_driver_580() {
     dnf install -y \
-        xorg-x11-drv-nvidia-580xx akmod-nvidia-580xx install xorg-x11-drv-nvidia-580xx-cuda
+        xorg-x11-drv-nvidia-580xx akmod-nvidia-580xx xorg-x11-drv-nvidia-580xx-cuda
 }
 
 # Legacy driver for Kepler
