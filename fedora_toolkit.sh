@@ -65,7 +65,7 @@ setup_zsh() {
 	chsh -s /usr/bin/zsh $(logname)
     local zshrc_path="/home/$(logname)/.zshrc"
     [[ ! -f ".zshrc" || -f "$zshrc_path" ]] &&
-        curl -fsSL https://raw.githubusercontent.com/polhdez/fedora-toolkit/refs/heads/dev/.zshrc -o "${PWD}/.zshrc"
+        curl -fsSL https://raw.githubusercontent.com/polhdez/fedora-toolkit/refs/heads/main/.zshrc -o "${PWD}/.zshrc"
     # Avoid copy if the user ran script at home dir
     [[ "${PWD}/.zshrc" != "$zshrc_path" ]] &&
         cp "${PWD}/.zshrc" "$zshrc_path"
