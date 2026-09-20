@@ -1,19 +1,11 @@
 #!/usr/bin/env bash
 set -Euo pipefail
 
-# ----- Functions with the tweaks. Feel free to reuse them ------
-
-# Fedora 44
-install_brave_origin() {
-    [ "$(dnf repolist | grep brave-browser | cut -d ' ' -f1)" == "brave-browser" ] && return
-    dnf install -y dnf-plugins-core
-    dnf config-manager addrepo \
-        --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
-    dnf install -y brave-origin
-}
+# ------------------------------- Repositories -------------------------------
 
 # Add RPMFusion
 setup_rpmfusion() {
+    [ "$(dnf repolist | grep -m1 rpmfusion-nonfree | cut -d ' ' -f1)" == "rpmfusion-nonfree" ] && return
     dnf install -y \
         https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
         https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
@@ -24,12 +16,27 @@ setup_rpmfusion() {
 
 # Add terra repo from ultramarine project
 setup_terra() {
-    [ "$(dnf repolist | grep terra | cut -d ' ' -f1)" == "terra" ] && return
+    [ "$(dnf repolist | grep -m1 terra | cut -d ' ' -f1)" == "terra" ] && return
     dnf install -y --nogpgcheck \
         --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
 }
 
-# Add virt-manager
+# We add bazaar, it's a lot faster and stable
+setup_flathub() {
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    flatpak install -y io.github.kolunmi.Bazaar
+}
+
+# ------------------------------- Applications -------------------------------
+
+install_brave_origin() {
+    [ "$(dnf repolist | grep -m1 brave-browser | cut -d ' ' -f1)" == "brave-browser" ] && return
+    dnf install -y dnf-plugins-core
+    dnf config-manager addrepo \
+        --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+    dnf install -y brave-origin
+}
+
 install_virt_manager() {
     dnf install -y @virtualization
     dnf install -y virt-manager
@@ -37,21 +44,33 @@ install_virt_manager() {
     systemctl enable --now libvirtd.service
 }
 
-# VSCode
 install_vscode() {
-    rpm --import https://packages.microsoft.com/keys/microsoft.asc
-    echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo
+    if [ "$(dnf repolist | grep -m1 code | cut -d ' ' -f1)" != "code" ]; then
+        rpm --import https://packages.microsoft.com/keys/microsoft.asc
+        cat << 'EOF' > /etc/yum.repos.d/vscode.repo
+[code]
+name=Visual Studio Code
+baseurl=https://packages.microsoft.com/yumrepos/vscode
+enabled=1
+autorefresh=1
+type=rpm-md
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc"
+EOF
+    fi
     dnf install -y code
 }
 
-# WIP
-setup_h264() {
-    dnf swap ffmpeg-free ffmpeg --allowerasing
-    sudo dnf install @multimedia --setopt="install_weak_deps=False" \
-        --exclude=PackageKit-gstreamer-plugin
-    # Only NVIDIA
-    #dnf install libva-nvidia-driver
+# ------------------------------- Codecs -------------------------------
+
+install_codecs() {
+    setup_rpmfusion
+    dnf swap -y ffmpeg-free ffmpeg --allowerasing
+    dnf install -y @multimedia --setopt="install_weak_deps=False" \
+        --exclude=PackageKit-gstreamer-plugin --allowerasing
 }
+
+# ------------------------------- Shell -------------------------------
 
 # Installs zsh with my custom minimal config and starship prompt
 # Tries to get starship from terra repos first, falls back to COPR
@@ -61,7 +80,7 @@ setup_zsh() {
 		zsh-autosuggestions
 	git clone https://github.com/zsh-users/zsh-history-substring-search /usr/share/zsh-history-substring-search || true
     # If its missing from the repos add COPR
-    dnf install -y starship || dnf copr enable -y atim/starship && dnf install -y starship
+    dnf install -y starship || { dnf copr enable -y atim/starship && dnf install -y starship; }
 	chsh -s /usr/bin/zsh $(logname)
     local zshrc_path="/home/$(logname)/.zshrc"
     [[ ! -f ".zshrc" || -f "$zshrc_path" ]] &&
@@ -72,6 +91,8 @@ setup_zsh() {
     chmod 750 "$zshrc_path"
     chown $(logname):$(logname) "$zshrc_path"
 }
+
+# ------------------------------- Performance tweaks -------------------------------
 
 setup_ioschedulers() {
     cat << 'EOF' > /etc/udev/rules.d/60-ioschedulers.rules
@@ -94,6 +115,8 @@ enable_dnf_parallel() {
 	dnf config-manager setopt max_parallel_downloads=10
 }
 
+# ------------------------------- NVIDIA -------------------------------
+
 # Using the json NVIDIA database from 
 # https://raw.githubusercontent.com/RightNow-AI/RightNow-GPU-Database/main/data/nvidia/all.json'
 # autodetect NVIDIA architecture and install matching drivers for it
@@ -114,17 +137,20 @@ nvidia_autodetect_driver() {
 
 # Recommended driver for Turing+
 install_nvidia_driver_open() {
+    setup_rpmfusion
     dnf install -y akmod-nvidia xorg-x11-drv-nvidia-cuda
 }
 
 # Driver for Turing Pascal and Volta architecture
 install_nvidia_driver_580() {
+    setup_rpmfusion
     dnf install -y \
         xorg-x11-drv-nvidia-580xx akmod-nvidia-580xx xorg-x11-drv-nvidia-580xx-cuda
 }
 
 # Legacy driver for Kepler
 install_nvidia_driver_470() {
+    setup_rpmfusion
     dnf install -y xorg-x11-drv-nvidia-470xx akmod-nvidia-470xx xorg-x11-drv-nvidia-470xx-cuda
 }
 
@@ -144,11 +170,7 @@ fi
 EOF
 }
 
-# We add bazaar, it's a lot faster and stable
-enable_flathub() {
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    flatpak install -y io.github.kolunmi.Bazaar
-}
+# ------------------------------- GNOME Tweaks -------------------------------
 
 # This is needed because we run the tool as root
 gsettings_wrapper() {
@@ -209,7 +231,9 @@ apply_everything() {
     # Extra repositories
     setup_rpmfusion
     setup_terra
-    enable_flathub
+    setup_flathub
+    # Add codecs
+    install_codecs
     # Add applications
     install_brave_origin
     install_vscode
@@ -224,7 +248,7 @@ apply_everything() {
     nvidia_autodetect_driver
 }
 
-# ------ TUI Section ------
+# ------------------------------- TUI Section -------------------------------
 
 # Global variables
 selection=0
@@ -240,13 +264,13 @@ NC='\033[0m' # No Color
 ESC='\033[K'
 
 # Helper functions for the menus
-selection_prev() {
+selection_next() {
     if [ $selection -ge 0 ] && [ $selection -lt $(($n_options - 1)) ]; then
         selection=$(($selection + 1))
     fi
 }
 
-selection_next() {
+selection_prev() {
     if [ $selection -gt 0 ] && [ $selection -lt $(($n_options)) ]; then
         selection=$(($selection - 1))
     fi
@@ -265,10 +289,10 @@ read_key() {
     fi
     case $mode in
         'q') exit 0;;
-        '[A') selection_next ;; # Up arrow
-        '[B') selection_prev  ;; # Down arrow
-        '[D') selection_next ;; # Left arrow
-        '[C') selection_prev  ;; # Right arrow
+        '[A') selection_prev ;; # Up arrow
+        '[B') selection_next  ;; # Down arrow
+        '[D') selection_prev ;; # Left arrow
+        '[C') selection_next  ;; # Right arrow
         $'\x0a') return 0;; #Enter key
         *) >&2 echo 'ERR bad input'; return 1;;
     esac
@@ -351,7 +375,7 @@ finished_msg() {
     tput civis
 }
 
-# ----- The actual menus for the tool ------
+# ------------------- The actual menus for the tool -------------------------------
 
 everything_menu() {
     selection=0
@@ -365,6 +389,7 @@ everything_menu() {
         '1') return;;
     esac
     finished_msg "${GREEN}Finished! A reboot is recommended!${NC}"
+    
 }
 
 shell_menu() {
@@ -449,7 +474,7 @@ repos_menu() {
     case $selection in
         '0') setup_rpmfusion;;
         '1') setup_terra;;
-        '2') enable_flathub;;
+        '2') setup_flathub;;
         '3') return;;
     esac
     finished_msg
@@ -473,12 +498,27 @@ gnome_tweaks_menu() {
     finished_msg
 }
 
+codecs_menu() {
+    selection=0
+    options=(
+        "Install media codecs"
+        "Back"
+    )
+    draw_selection_list "${options[@]}"
+    case $selection in
+        '0') install_codecs;;
+        '1') return;;
+    esac
+    finished_msg
+}
+
 main_menu() {
     while true; do
         selection=0
         options=(
             "Apply everything! (opinionated, check README)"
             "NVIDIA Drivers ->"
+            "Media codecs ->"
             "Applications ->"
             "Performance tweaks ->"
             "Repositories ->"
@@ -490,12 +530,13 @@ main_menu() {
         case $selection in
             '0') everything_menu;;
             '1') nvidia_menu;;
-            '2') apps_menu;;
-            '3') performance_menu;;
-            '4') repos_menu;;
-            '5') gnome_tweaks_menu;;
-            '6') shell_menu;;
-            '7') exit;;
+            '2') codecs_menu;;
+            '3') apps_menu;;
+            '4') performance_menu;;
+            '5') repos_menu;;
+            '6') gnome_tweaks_menu;;
+            '7') shell_menu;;
+            '8') exit;;
         esac
     done
 }
