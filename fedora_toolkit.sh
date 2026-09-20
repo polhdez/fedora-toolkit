@@ -240,13 +240,13 @@ NC='\033[0m' # No Color
 ESC='\033[K'
 
 # Helper functions for the menus
-selection_up() {
+selection_prev() {
     if [ $selection -ge 0 ] && [ $selection -lt $(($n_options - 1)) ]; then
         selection=$(($selection + 1))
     fi
 }
 
-selection_down() {
+selection_next() {
     if [ $selection -gt 0 ] && [ $selection -lt $(($n_options)) ]; then
         selection=$(($selection - 1))
     fi
@@ -265,10 +265,10 @@ read_key() {
     fi
     case $mode in
         'q') exit 0;;
-        '[A') selection_down ;; # Up arrow
-        '[B') selection_up  ;; # Down arrow
-        '[D') selection_down ;; # Up arrow
-        '[C') selection_up  ;; # Down arrow
+        '[A') selection_next ;; # Up arrow
+        '[B') selection_prev  ;; # Down arrow
+        '[D') selection_next ;; # Left arrow
+        '[C') selection_prev  ;; # Right arrow
         $'\x0a') return 0;; #Enter key
         *) >&2 echo 'ERR bad input'; return 1;;
     esac
