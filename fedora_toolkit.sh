@@ -362,10 +362,9 @@ everything_menu() {
     draw_ask_dialog "Do you really want to apply all the features and tweaks?" "${options[@]}"
     case $selection in
         '0') apply_everything;;
-        '1') main_menu;;
+        '1') return;;
     esac
     finished_msg "${GREEN}Finished! A reboot is recommended!${NC}"
-    main_menu
 }
 
 shell_menu() {
@@ -377,10 +376,9 @@ shell_menu() {
    draw_selection_list "${options[@]}"
     case $selection in
         '0') setup_zsh;;
-        '1') main_menu;;
+        '1') return;;
     esac
     finished_msg
-    main_menu
 }
 
 performance_menu() {
@@ -394,10 +392,9 @@ performance_menu() {
     case $selection in
         '0') enable_dnf_parallel;;
         '1') setup_ioschedulers;;
-        '2') main_menu;;
+        '2') return;;
     esac
     finished_msg
-    main_menu
 }
 
 apps_menu() {
@@ -413,10 +410,9 @@ apps_menu() {
         '0') install_brave_origin;;
         '1') install_vscode;;
         '2') install_virt_manager;;
-        '3') main_menu;;
+        '3') return;;
     esac
     finished_msg
-    main_menu
 }
 
 nvidia_menu() {
@@ -436,10 +432,9 @@ nvidia_menu() {
         '2') install_nvidia_driver_580;;
         '3') install_nvidia_driver_470;;
         '4') install_cuda;;
-        '5') main_menu;;
+        '5') return;;
     esac
     finished_msg
-    main_menu
 }
 
 repos_menu() {
@@ -455,10 +450,9 @@ repos_menu() {
         '0') setup_rpmfusion;;
         '1') setup_terra;;
         '2') enable_flathub;;
-        '3') main_menu;;
+        '3') return;;
     esac
     finished_msg
-    main_menu
 }
 
 gnome_tweaks_menu() {
@@ -474,36 +468,36 @@ gnome_tweaks_menu() {
         '0') enable_window_buttons;;
         '1') install_gnome_extensions;;
         '2') install_adw-gtk3;;
-        '3') main_menu;;
+        '3') return;;
     esac
     finished_msg
-    main_menu
 }
 
 main_menu() {
-    selection=0
-    options=(
-        "Apply everything! (opinionated, check README)"
-        "NVIDIA Drivers ->"
-        "Applications ->"
-        "Performance tweaks ->"
-        "Repositories ->"
-        "Gnome tweaks ->"
-        "Shell ->"
-        "Exit"
-    )
-    draw_selection_list "${options[@]}"
-    case $selection in
-        '0') everything_menu;;
-        '1') nvidia_menu;;
-        '2') apps_menu;;
-        '3') performance_menu;;
-        '4') repos_menu;;
-        '5') gnome_tweaks_menu;;
-        '6') shell_menu;;
-        '7') exit;;
-    esac
-    main_menu
+    while true; do
+        selection=0
+        options=(
+            "Apply everything! (opinionated, check README)"
+            "NVIDIA Drivers ->"
+            "Applications ->"
+            "Performance tweaks ->"
+            "Repositories ->"
+            "Gnome tweaks ->"
+            "Shell ->"
+            "Exit"
+        )
+        draw_selection_list "${options[@]}"
+        case $selection in
+            '0') everything_menu;;
+            '1') nvidia_menu;;
+            '2') apps_menu;;
+            '3') performance_menu;;
+            '4') repos_menu;;
+            '5') gnome_tweaks_menu;;
+            '6') shell_menu;;
+            '7') exit;;
+        esac
+    done
 }
 
 update_dialog() {
@@ -515,10 +509,9 @@ update_dialog() {
     draw_ask_dialog "It is recommended to update the system before running. Update now?" "${options[@]}"
     case $selection in
         '0') dnf -y update;;
-        '1') main_menu;;
+        '1') return;;
     esac
     clear
-    main_menu
 }
 
 if [ $(id -u) != 0 ]; then
