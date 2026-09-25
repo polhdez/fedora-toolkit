@@ -115,6 +115,30 @@ enable_dnf_parallel() {
 	dnf config-manager setopt max_parallel_downloads=10
 }
 
+# Limit dirty pages for USB devices (fixes inaccurate copy process reporting)
+# Got it from https://github.com/biglinux/usb-dirty-pages-udev
+enable_usb_dirty_pages_udev() {
+    echo 'ACTION=="add", KERNEL=="sd[a-z]", SUBSYSTEM=="block", ENV{ID_USB_TYPE}=="disk", RUN+="/usr/local/bin/usb-dirty-pages-udev %k"' \
+        > /etc/udev/rules.d/60-usb-dirty-pages-udev.rules
+    cat << 'EOF' > /usr/local/bin/usb-dirty-pages-udev
+#!/bin/sh
+##################################
+#  Author Create: Bruno Gonçalves (www.biglinux.com.br) 
+#  Create Date:    2023/03/12
+#  
+#  Licensed by GPL V3 or greater
+##################################
+
+
+if [ -z "$(df --output=source '/' | grep $1)" ]; then
+    echo 1 > /sys/block/$1/bdi/strict_limit
+    echo 16777216 > /sys/block/$1/bdi/max_bytes
+fi
+EOF
+    chmod +x /usr/local/bin/usb-dirty-pages-udev
+    udevadm control --reload-rules && udevadm trigger
+}
+
 # ------------------------------- NVIDIA -------------------------------
 
 # Using the json NVIDIA database from 
@@ -224,8 +248,6 @@ install_gnome_extensions() {
 }
 
 apply_everything() {
-    # Improve dnf speed
-    enable_dnf_parallel
     # Update first
     dnf update -y
     # Extra repositories
@@ -240,6 +262,10 @@ apply_everything() {
     install_virt_manager
     # Install zsh config
     setup_zsh
+    # Performance tweaks
+    enable_dnf_parallel
+    enable_usb_dirty_pages_udev
+    setup_ioschedulers
     # Gnome tweaks
     enable_window_buttons
     install_gnome_extensions
@@ -411,13 +437,15 @@ performance_menu() {
     options=(
         "Enable dnf parallel downloads"
         "Set up udev rule for optimal I/O scheduling"
+        "Limit dirty pages for USB devices (fixes inaccurate copy process reporting)"
         "Back"
    )
    draw_selection_list "${options[@]}"
     case $selection in
         '0') enable_dnf_parallel;;
         '1') setup_ioschedulers;;
-        '2') return;;
+        '2') enable_usb_dirty_pages_udev;;
+        '3') return;;
     esac
     finished_msg
 }
@@ -450,6 +478,9 @@ nvidia_menu() {
         "Install CUDA"
         "Back"
     )
+    # Update first
+    dnf update -y
+    # Extra repositori
     draw_selection_list "${options[@]}"
     case $selection in
         '0') nvidia_autodetect_driver;;

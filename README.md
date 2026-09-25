@@ -46,6 +46,7 @@ Here is what is currently implemented:
 
 - Enables parallel downloads in DNF to improve download speeds
 - Create udev rule for optimal I/O scheduling
+- Applies the dirty-bytes workaround for USB drives so they show accurate copy progress.
 
 ### Virt-manager
 
